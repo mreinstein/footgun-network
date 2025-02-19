@@ -26,9 +26,9 @@ import dgram        from 'dgram'
 
 
 async function main () {
-	const socket = dgram.createSocket('udp4')
+    const socket = dgram.createSocket('udp4')
 
-	// listen for data, local:   address     port
+    // listen for data, local:   address     port
     await bind(socket,          '0.0.0.0',   3000)
 
     // create endpoint, remote:            address   port
@@ -44,7 +44,7 @@ async function main () {
 
     // listen for new data on the UDP socket
     socket.on('message', function (message, rinfo) {
-    	Network.readPacket(endpoint, message) // process all received data through the endpoint
+        Network.readPacket(endpoint, message) // process all received data through the endpoint
     })
 
     // the channels ids are based on the order they were added to the endpoint.
@@ -54,41 +54,41 @@ async function main () {
 
     const gameLoop = function () {
 
-    	// send one message over unreliable channel
-    	const [ x, y ] = [ 100, 106 ]
-    	const playerPosMsg = new Uint8Array([ x, y ]) // a simple 2 byte message to send
-    	Network.sendMessage(endpoint, unreliableChannelId, playerPosMsg, playerPosMsg.byteLength)
+        // send one message over unreliable channel
+        const [ x, y ] = [ 100, 106 ]
+        const playerPosMsg = new Uint8Array([ x, y ]) // a simple 2 byte message to send
+        Network.sendMessage(endpoint, unreliableChannelId, playerPosMsg, playerPosMsg.byteLength)
 
-    	// send one message over reliable channel
-    	const enterVehicleMsg = new Uint8Array([ 23, 106, 255, 0, 24, 14, 91 ]) 
-    	Network.sendMessage(endpoint, reliableChannelId, enterVehicleMsg, enterVehicleMsg.byteLength)
+        // send one message over reliable channel
+        const enterVehicleMsg = new Uint8Array([ 23, 106, 255, 0, 24, 14, 91 ]) 
+        Network.sendMessage(endpoint, reliableChannelId, enterVehicleMsg, enterVehicleMsg.byteLength)
 
-    	// receive messages over the unreliable channel (each message is a Uint8Array)
-    	const unreliableMsgs = Network.recvMessages(endpoint, unreliableChannelId)
+        // receive messages over the unreliable channel (each message is a Uint8Array)
+        const unreliableMsgs = Network.recvMessages(endpoint, unreliableChannelId)
 
-    	// also an array of messages, but the reliable channels will ensure the order is
-    	// maintained, so if packets are dropped or arrive out of order you can still have
-    	// confidence you'll see a consistent ordered message stream here that matches what
-    	// the sending side put in.
-    	const reliableMsgs = Network.recvMessages(endpoint, reliableChannelId)
+        // also an array of messages, but the reliable channels will ensure the order is
+        // maintained, so if packets are dropped or arrive out of order you can still have
+        // confidence you'll see a consistent ordered message stream here that matches what
+        // the sending side put in.
+        const reliableMsgs = Network.recvMessages(endpoint, reliableChannelId)
 
 
-    	// package all queued messages into packets and send them over the underlying UDP socket
-    	Network.transmitPackets(endpoint)
+        // package all queued messages into packets and send them over the underlying UDP socket
+        Network.transmitPackets(endpoint)
 
-    	// stats:
+        // stats:
 
-    	// network round trip in milliseconds
-    	//console.log('RTT:', endpoint.RTT)
+        // network round trip in milliseconds
+        //console.log('RTT:', endpoint.RTT)
 
-    	// upload rate in bytes/second
-    	//console.log('upload:', endpoint.bandwidth.sendSpeed)
+        // upload rate in bytes/second
+        //console.log('upload:', endpoint.bandwidth.sendSpeed)
 
-    	// download rate in bytes/second
-    	//console.log('download:', endpoint.bandwidth.recvSpeed)
+        // download rate in bytes/second
+        //console.log('download:', endpoint.bandwidth.recvSpeed)
 
-		setTimeout(gameLoop, 1)
-	}
+        setTimeout(gameLoop, 1)
+    }
 
     gameLoop() // start running the game
 }
@@ -98,7 +98,7 @@ main()
 
 
 async function bind (socket, listenAddress, listenPort) {
-	return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve, reject) {
         sock.bind(listenPort, listenAddress, function (er) {
             if (er)
                 return reject(er)

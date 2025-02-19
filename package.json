@@ -5,10 +5,16 @@
   "type": "module",
   "private": true,
   "main": "src/network.js",
-  "devDependencies": {
-    "@footgun/random-gap": "^0.2.0",
-    "alea": "^1.0.1",
-    "npm-run-all": "^4.1.5"
+  "keywords": [
+    "game",
+    "networking",
+    "udp",
+    "realtime",
+    "low latency"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:mreinstein/footgun-network.git"
   },
   "scripts": {
     "soak": "npm-run-all -p soak:*",
@@ -20,5 +26,10 @@
   "license": "MIT",
   "dependencies": {
     "@petamoriken/float16": "^3.9.1"
+  },
+  "devDependencies": {
+    "@footgun/random-gap": "^0.2.0",
+    "alea": "^1.0.1",
+    "npm-run-all": "^4.1.5"
   }
 }
