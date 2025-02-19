@@ -1,0 +1,24 @@
+{
+  "name": "@footgun/network",
+  "description": "A node.js library for low latency, realtime networking over UDP.",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "src/network.js",
+  "devDependencies": {
+    "@footgun/random-gap": "^0.2.0",
+    "alea": "^1.0.1",
+    "npm-run-all": "^4.1.5"
+  },
+  "scripts": {
+    "soak": "npm-run-all -p soak:*",
+    "soak:client": "node test/test-soak.js",
+    "soak:udp-shaping-proxy": "node test/test-udp-shaping-proxy",
+    "test": "node test/test.js"
+  },
+  "author": "Michael Reintein",
+  "license": "MIT",
+  "dependencies": {
+    "@petamoriken/float16": "^3.9.1"
+  }
+}
