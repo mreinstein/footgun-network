@@ -7,6 +7,7 @@ export * as Stream         from './uint8array/stream.js'
 export * as pack           from './uint8array/pack.js'
 export * as unpack         from './uint8array/unpack.js'
 
+
 // @footgun/networking library
 
 const { CHANNEL_UNRELIABLE, CHANNEL_RELIABLE, LIMIT_MESSAGES_PER_PACKET } = constants

@@ -1,4 +1,6 @@
 import Alea                from 'alea'
+import assert              from 'node:assert/strict'
+import test                from 'node:test'
 import { SequenceBuffer, Stream, create, addChannel, writePacket,
          readPacket, recvMessages, sendMessage,
          transmitPackets,
@@ -72,23 +74,15 @@ function testSend () {
 			sendMessage(client, channelId, s.buf, byteLength)
 		}
 
-		if (client.channels[0].messageSendBuffer.size !== 5)
-			throw new Error(`message send buffer should contain all the messages`)
-
-		if (client.channels[0].nextMessageId !== 5)
-			throw new Error(`message send buffer should have 5 as it's next message id`)
-
-		//console.log('message send buffer:', client.channels[0].messageSendBuffer)
+		assert.strictEqual(client.channels[0].messageSendBuffer.size, 5, `message send buffer should contain all the messages`)
+		assert.strictEqual(client.channels[0].nextMessageId, 5, `message send buffer should have 5 as it's next message id`)
 
 		const s = Stream.create()
 		const wroteData = writePacket(client, s)
 
 		const byteCount = Math.ceil(s.offsetBits / 8)
 		
-		//console.log('wrote data?:', wroteData, 'byte count:', byteCount, ' packet:', s)
-
-		if (client.channels[0].messageSendBuffer.size !== 0)
-			throw new Error(`message send buffer should fully drain`)
+		assert.strictEqual(client.channels[0].messageSendBuffer.size, 0, `message send buffer should fully drain`)
 	}
 
 	// ensure packets don't overfill
@@ -109,13 +103,10 @@ function testSend () {
 		const s = Stream.create()
 		const wroteData = writePacket(client, s)
 
-		if (client.channels[0].messageSendBuffer.size !== 2)
-			throw new Error(`incorrect size of remaining send buffer: ${client.channels[0].messageSendBuffer.size}`)
+		assert.strictEqual(client.channels[0].messageSendBuffer.size, 2)
 
 		const byteCount = Math.ceil(s.offsetBits / 8)
-		if (byteCount !== 785)
-			throw new Error(`Incorrect byte count: ${byteCount}`)
-
+		assert.strictEqual(byteCount, 785)
 
 		// try receiving this packet and validate we can read the messages
 		const server =  create()
@@ -125,8 +116,7 @@ function testSend () {
 		readPacket(server, s)
 
 		const messages = recvMessages(server, channelId)
-		if (messages.length !== 3)
-			throw new Error(`Incorrect received messages on server`)
+		assert.strictEqual(messages.length, 3)
 	}
 }
 
@@ -147,9 +137,8 @@ function testPacketAck () {
 	const packetsToSend = 32
 	const serverLostChance = 0.15  // % chance of server losing packets 0.1 == 10%
 	const serverLost = [ ]
-	for (let i=0; i < packetsToSend; i++) {
+	for (let i=0; i < packetsToSend; i++)
 		serverLost.push(rng() <= serverLostChance)
-	}
 
 	// TODO: lost packets on the client too
 
@@ -158,12 +147,10 @@ function testPacketAck () {
 		makeAndSendPacket(server, client)
 	}
 
-	// validate client state
-	if (client.packet.nextSequence !== packetsToSend)
-		throw new Error(`client.packet.nextSequence isn't ${packetsToSend}`)
+	assert.strictEqual(client.packet.nextSequence, packetsToSend)
 
-	if (client.packet.newestReceivedPacketSeq !== packetsToSend - 1)
-		throw new Error(`client.packet.newestReceivedPacketSeq isn't ${packetsToSend-1} it actually ${client.packet.newestReceivedPacketSeq}`)
+	assert.strictEqual(client.packet.newestReceivedPacketSeq, packetsToSend - 1)
+
 
 	for (let i=0; i < packetsToSend; i++) {
 		const wasServerLost = serverLost[i]
@@ -179,12 +166,10 @@ function testPacketAck () {
 	}
 
 	// validate server state
-	if (server.packet.nextSequence !== packetsToSend)
-		throw new Error(`server.packet.nextSequence isn't ${packetsToSend}`)
+	assert.strictEqual(server.packet.nextSequence, packetsToSend)
 
 	const lastIdx = serverLost.lastIndexOf(false)
-	if (server.packet.newestReceivedPacketSeq !== lastIdx)
-		throw new Error(`server.packet.newestReceivedPacketSeq !== ${lastIdx}`)
+	assert.strictEqual(server.packet.newestReceivedPacketSeq, lastIdx)
 	
 	// get the last packet that was sent to the server successfully.
 	// all packets before that should be acked on the server

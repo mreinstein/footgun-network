@@ -20,7 +20,7 @@
     "soak": "npm-run-all -p soak:*",
     "soak:client": "node test/test-soak.js",
     "soak:udp-shaping-proxy": "node test/test-udp-shaping-proxy",
-    "test": "node test/test.js"
+    "test": "node --test test/test.js"
   },
   "author": "Michael Reintein",
   "license": "MIT",
