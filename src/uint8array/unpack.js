@@ -1,3 +1,5 @@
+// TODO: eventually we can do away with the float16 package. Node.js technically already has this available behind a flag, e.g.,:
+//  node --js-float16array test.js 
 import { getFloat16 } from '@petamoriken/float16'  // not yet available in node, ponyfill it
 
 

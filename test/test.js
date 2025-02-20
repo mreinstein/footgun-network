@@ -1,7 +1,5 @@
 import Alea                from 'alea'
-import * as SequenceBuffer from '../src/sequence-buffer.js'
-import * as Stream         from '../src/uint8array/stream.js'
-import { create, addChannel, writePacket,
+import { SequenceBuffer, Stream, create, addChannel, writePacket,
          readPacket, recvMessages, sendMessage,
          transmitPackets,
          CHANNEL_UNRELIABLE, CHANNEL_RELIABLE } from '../src/network.js'

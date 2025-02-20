@@ -2,7 +2,10 @@ import * as SequenceBuffer from './sequence-buffer.js'
 import * as Stream         from './uint8array/stream.js'
 import * as constants      from './constants.js'
 export *                   from './constants.js'
-
+export * as SequenceBuffer from './sequence-buffer.js'
+export * as Stream         from './uint8array/stream.js'
+export * as pack           from './uint8array/pack.js'
+export * as unpack         from './uint8array/unpack.js'
 
 // @footgun/networking library
 
