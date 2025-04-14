@@ -22,3 +22,5 @@ const messageResendTime = 0.1;          ///< Minimum delay between message resen
 
 const packetFragmentSize = 1024;        ///< Size of each packet fragment (bytes).
 */
+
+export const MAX_PACKET_BITS = 1024 * 8  // max packet size without fragmentation, given commmon/prevailing MTU settings on internet routers

@@ -1,10 +1,11 @@
 import Alea                from 'alea'
 import assert              from 'node:assert/strict'
 import test                from 'node:test'
-import { SequenceBuffer, Stream, create, addChannel, writePacket,
-         readPacket, recvMessages, sendMessage,
-         transmitPackets,
-         CHANNEL_UNRELIABLE, CHANNEL_RELIABLE } from '../src/network.js'
+import writePacket         from '../src/write-packet.js'
+import { SequenceBuffer, Stream, create, addChannel,
+         readPacket, readMessages, sendMessage,
+         transmitPackets, CHANNEL_UNRELIABLE,
+         CHANNEL_RELIABLE } from '../src/network.js'
 
 
 // some really basic unit tests
@@ -115,7 +116,7 @@ function testSend () {
 		s.offsetBits = 0
 		readPacket(server, s)
 
-		const messages = recvMessages(server, channelId)
+		const messages = readMessages(server, channelId)
 		assert.strictEqual(messages.length, 3)
 	}
 }

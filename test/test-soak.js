@@ -70,7 +70,7 @@ async function main () {
 	// run the test!
 	setInterval(function () {
 		// run client logic
-		let messages = Network.recvMessages(endpointS, 0)
+		let messages = Network.readMessages(endpointS, 0)
 
 		if (messages.length) {
 			
@@ -101,7 +101,7 @@ async function main () {
 
 
 		// run server logic
-		messages = Network.recvMessages(endpointC, 0)
+		messages = Network.readMessages(endpointC, 0)
 		if (messages.length) {
 
 			for (const m of messages) {

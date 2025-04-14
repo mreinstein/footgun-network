@@ -64,13 +64,13 @@ async function main () {
         Network.sendMessage(endpoint, reliableChannelId, enterVehicleMsg, enterVehicleMsg.byteLength)
 
         // receive messages over the unreliable channel (each message is a Uint8Array)
-        const unreliableMsgs = Network.recvMessages(endpoint, unreliableChannelId)
+        const unreliableMsgs = Network.readMessages(endpoint, unreliableChannelId)
 
         // also an array of messages, but the reliable channels will ensure the order is
         // maintained, so if packets are dropped or arrive out of order you can still have
         // confidence you'll see a consistent ordered message stream here that matches what
         // the sending side put in.
-        const reliableMsgs = Network.recvMessages(endpoint, reliableChannelId)
+        const reliableMsgs = Network.readMessages(endpoint, reliableChannelId)
 
 
         // package all queued messages into packets and send them over the underlying UDP socket
