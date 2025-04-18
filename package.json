@@ -24,7 +24,8 @@
   "author": "Michael Reintein",
   "license": "MIT",
   "dependencies": {
-    "@petamoriken/float16": "^3.9.1"
+    "@petamoriken/float16": "^3.9.1",
+    "ringbuf.js": "^0.4.0"
   },
   "devDependencies": {
     "@footgun/random-gap": "^0.2.0",
