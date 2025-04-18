@@ -64,7 +64,7 @@ export function addChannel (endpoint, type) {
     if (type === CHANNEL_RELIABLE) {
     	// https://github.com/mas-bandwidth/yojimbo/blob/d8722261c7a93867c6c95c221966c714d4048b6f/include/yojimbo_reliable_ordered_channel.h#L366C9-L367C9
 
-    	channel.messageRecvBuffer = new Map() // messageid -> [ data, byteLength ]
+    	channel.messageRecvBuffer = new Map() // messageid -> [ data (Uint8Array), byteLength ]
 
     	channel.nextMessageReceiveId = 0 // the next message to receive from the messageRecvBuffer
     	channel.oldestUnackedMessageId = 0 // Id of the oldest unacked message in the send queue.
@@ -74,7 +74,7 @@ export function addChannel (endpoint, type) {
     	channel.packetMessages = SequenceBuffer.create(1024) // packetid -> [ messageids sent in this packet ]
     }
     else if (type === CHANNEL_UNRELIABLE) {
-		channel.recvdMessages = [ ]
+		channel.recvdMessages = [ ] // each message in this array is a Uint8Array of bytes 
     }
 
 	endpoint.channels.push(channel)
@@ -240,6 +240,7 @@ export function readPacket (endpoint, s) {
 }
 
 
+// get all available messages from the channel.  Each message is a Uint8Array
 export function readMessages (endpoint, channelId) {
 	const channel = endpoint.channels[channelId]
 

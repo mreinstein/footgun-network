@@ -11,7 +11,7 @@ import { setFloat16 } from '@petamoriken/float16'  // not yet available in node,
  * Packs `bitsToWrite` bits from `value` into `byteArray` at `offsetBits`.
  * @param {Uint8Array|number[]} byteArray   - The array where bits will be stored.
  * @param {number} offsetBits               - The current bit offset in `byteArray`.
- * @param {number} value                    - The unsigned nteger value to pack.
+ * @param {number} value                    - The unsigned integer value to pack.
  * @param {number} bitsToWrite              - Number of bits from `value` to store.
  * @returns {number}                        - The new bit offset after writing.
  */

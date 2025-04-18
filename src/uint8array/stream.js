@@ -19,7 +19,6 @@ export function reset (stream) {
 
 export const read = {
 	uint: function (stream, bitsToRead) {
-		// TODO: assert bitsToRead is > 0
 		stream.offsetBits += bitsToRead
 		return unpack.uint(stream.buf, stream.offsetBits - bitsToRead, bitsToRead)
 	},

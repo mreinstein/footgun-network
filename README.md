@@ -31,8 +31,8 @@ async function main () {
     // listen for data, local:   address     port
     await bind(socket,          '0.0.0.0',   3000)
 
-    // create endpoint, remote:            address   port
-    const endpoint = Network.init(socket, '0.0.0.0', 3000)
+    // create endpoint, remote:             address   port
+    const endpoint = Network.create(socket, '0.0.0.0', 3000)
 
     // unreliable channels are great for high volume eventually consistent data like player positions, etc.
     Network.addChannel(endpoint, Network.CHANNEL_UNRELIABLE)
@@ -99,11 +99,11 @@ main()
 
 async function bind (socket, listenAddress, listenPort) {
     return new Promise(function (resolve, reject) {
-        sock.bind(listenPort, listenAddress, function (er) {
+        socket.bind(listenPort, listenAddress, function (er) {
             if (er)
                 return reject(er)
 
-            const address = sock.address()
+            const address = socket.address()
             console.log(`Server listening at ${address.address}:${address.port}.`)
             resolve()
         })
