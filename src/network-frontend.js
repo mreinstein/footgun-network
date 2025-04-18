@@ -7,6 +7,12 @@ import { RingBuffer } from 'ringbuf.js'
 import { Worker }     from 'worker_threads'
 
 
+// TODO: how do we expose the rinfo object?
+
+// TODO: expose a GC friendly interface for reading messages instead of allocating an array each time:
+//       const dest = [ Uint8Array, Uint8Array, Uint8Array, ...]  // fixed size
+//       readCount = Network.readMessages(endpoint, channelId, dest)
+
 // TODO: input validation on all parameters in the worker thread. Throw postMessage('error') when things go awry
 
 
