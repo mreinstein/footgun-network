@@ -1,7 +1,7 @@
 {
   "name": "@footgun/network",
   "description": "A node.js library for low latency, realtime networking over UDP.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "main": "src/network.js",
   "keywords": [
