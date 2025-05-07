@@ -23,9 +23,6 @@
   },
   "author": "Michael Reintein",
   "license": "MIT",
-  "dependencies": {
-    "@petamoriken/float16": "^3.9.1"
-  },
   "devDependencies": {
     "@footgun/random-gap": "^0.2.0",
     "alea": "^1.0.1",

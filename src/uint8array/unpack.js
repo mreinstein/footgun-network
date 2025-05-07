@@ -1,8 +1,3 @@
-// TODO: eventually we can do away with the float16 package. Node.js technically already has this available behind a flag:
-//  node --js-float16array test.js 
-import { getFloat16 } from '@petamoriken/float16'  // not yet available in node, ponyfill it
-
-
 // from https://github.com/binaryjs/js-binarypack/blob/master/lib/binarypack.js
 // and https://chatgpt.com/c/679509c8-82d0-8004-b40e-8ea63206f816
 
@@ -108,7 +103,7 @@ export function float16 (byteArray, offsetBits, littleEndian = true) {
     scratch.setUint8(i, oneByte)
   }
 
-  return getFloat16(scratch, 0, littleEndian)
+  return scratch.getFloat16(0, littleEndian)
 }
 
 
