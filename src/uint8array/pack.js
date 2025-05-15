@@ -1,8 +1,3 @@
-// TODO: eventually we can do away with the float16 package. Node.js technically already has this available behind a flag:
-//  node --js-float16array test.js 
-import { setFloat16 } from '@petamoriken/float16'  // not yet available in node, ponyfill it
-
-
 // from https://github.com/binaryjs/js-binarypack/blob/master/lib/binarypack.js
 // and https://chatgpt.com/c/679509c8-82d0-8004-b40e-8ea63206f816
 
@@ -105,7 +100,7 @@ const scratch = new DataView(new ArrayBuffer(8))
  */
 export function float16 (byteArray, offsetBits, float16Value, littleEndian = true) {
   // Write the float16 into the DataView
-  setFloat16(scratch, 0, float16Value, littleEndian)
+  scratch.setFloat16(0, float16Value, littleEndian)
 
   let offset = offsetBits
 
