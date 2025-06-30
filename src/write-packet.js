@@ -12,7 +12,7 @@ const { CHANNEL_UNRELIABLE, CHANNEL_RELIABLE, LIMIT_MESSAGES_PER_PACKET, MAX_PAC
 // @return boolean true if any data fit into the packet, false otherwise
 export default function writePacket (endpoint, s) {
 
-	// Insert an entry for for the current send packet sequence number in the sent packet sequence buffer
+	// Insert an entry for the current send packet sequence number in the sent packet sequence buffer
 	// with data indicating that it hasn’t been acked yet
 	SequenceBuffer.insertData(endpoint.packet.sent, endpoint.packet.nextSequence, false)
 
