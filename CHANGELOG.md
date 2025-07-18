@@ -1,3 +1,6 @@
+# 0.4.1
+* fix a bug that breaks message acking under heavy packet loss conditions
+
 # 0.4.0
 * BREAKING: refactored the `SequenceBuffer` public API
 * BREAKING: added a new paramater to `Network.readMessages` to accept a data structure to fill
