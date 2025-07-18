@@ -91,22 +91,27 @@ export default function writePacket (endpoint, s) {
 			const ss = SequenceBuffer.insert(channel.packetMessages, endpoint.packet.nextSequence)
 			ss.len = 0
 	
+			/*
+			From https://gafferongames.com/post/reliable_ordered_messages/#reliable-ordered-message-algorithm
+
+			under the "on packet send" section:
+
+				Never send a message id that the receiver can’t buffer or you’ll break message acks (since that message won’t
+				be buffered, but the packet containing it will be acked, the sender thinks the message has been received, and
+				will not resend it). This means you must never send a message id equal to or more recent than the oldest
+				unacked message id plus the size of the message receive buffer.
+	    	*/
+			const maxMessageIdToSend = Math.min(
+				channel.nextMessageId,
+				channel.oldestUnackedMessageId + channel.messageRecvBuffer.size // the receiver can't buffer this message id
+			)
+
 			// Walk across the set of messages in the send message sequence buffer between the oldest unacked message id and
 			// the most recent inserted message id from left -> right (increasing message id order).
-			for (let mid=channel.oldestUnackedMessageId; mid < channel.nextMessageId; mid++) {
+			for (let mid=channel.oldestUnackedMessageId; mid < maxMessageIdToSend; mid++) {
 
 				const m = SequenceBuffer.find(channel.messageSendBuffer, mid)
 				if (m) {
-					/*
-					TODO: check this logic, I forget what needs to be done here. I used to use a js Map for this but the 
-				 		  memory leaking for it was pretty horrendous!
-
-					Never send a message id that the receiver can’t buffer or you’ll break message acks (since that message won’t
-					be buffered, but the packet containing it will be acked, the sender thinks the message has been received, and
-					will not resend it). This means you must never send a message id equal to or more recent than the oldest
-					unacked message id plus the size of the message receive buffer.
-			    	*/
-
 					/*
 					For any message that hasn’t been sent in the last 0.1 seconds and fits in the available space we have left in
 					the packet, add it to the list of messages to send. Messages on the left (older messages) naturally have

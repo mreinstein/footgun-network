@@ -55,10 +55,6 @@ export function addChannel (endpoint, type) {
 
     const channel = {
     	type,                         // CHANNEL_UNRELIABLE | CHANNEL_RELIABLE
-    
-    	// TODO: I don't know if 2000 is sufficient here, I'm just throwing it in for now.
-    	//       re-read the unreliable channel stuff from gaffer to understand this one properly
-    	//
     	// messageid -> { message, byteLength }
     	messageSendBuffer: SequenceBuffer.create(2000, function () {
     		return {
@@ -73,10 +69,6 @@ export function addChannel (endpoint, type) {
 
     if (type === CHANNEL_RELIABLE) {
     	// https://github.com/mas-bandwidth/yojimbo/blob/d8722261c7a93867c6c95c221966c714d4048b6f/include/yojimbo_reliable_ordered_channel.h#L366C9-L367C9
-
-    	// TODO: I don't know if 2000 is sufficient here, I'm just throwing it in for now.
-    	//       re-read the reliable channel stuff from gaffer to understand this one properly
-    	//
     	// messageid -> [ msg (Uint8Array), len (byteLength of msg) ]
     	channel.messageRecvBuffer = SequenceBuffer.create(2000, function () {
     		return {
@@ -160,9 +152,26 @@ function hasAvailableData (endpoint) {
 			}
 			
 		} else if (channel.type === CHANNEL_RELIABLE) {
+
+			/*
+			From https://gafferongames.com/post/reliable_ordered_messages/#reliable-ordered-message-algorithm
+
+			under the "on packet send" section:
+
+				Never send a message id that the receiver can’t buffer or you’ll break message acks (since that message won’t
+				be buffered, but the packet containing it will be acked, the sender thinks the message has been received, and
+				will not resend it). This means you must never send a message id equal to or more recent than the oldest
+				unacked message id plus the size of the message receive buffer.
+	    	*/
+			const maxMessageIdToSend = Math.min(
+				channel.nextMessageId,
+				channel.oldestUnackedMessageId + channel.messageRecvBuffer.size // the receiver can't buffer this message id
+			)
+
 			// Walk across the set of messages in the send message sequence buffer between the oldest unacked message id and
 			// the most recent inserted message id from left -> right (increasing message id order).
-			for (let mid=channel.oldestUnackedMessageId; mid < channel.nextMessageId; mid++) {
+			for (let mid=channel.oldestUnackedMessageId; mid < maxMessageIdToSend; mid++) {
+
 				const m = SequenceBuffer.find(channel.messageSendBuffer, mid)
 				if (m) {
 					const dt = performance.now() - SequenceBuffer.find(channel.messageLastSent, mid)
