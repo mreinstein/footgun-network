@@ -31,14 +31,39 @@ async function main () {
 	// control data: the sent data is generated and known ahead of time
 	// maintain a rolling set of test messages that we sent out to validate everything is delivered 
 	let clientRecvMessageCount = 0
-	const clientSendData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE * 10)  // tick -> messagebuf
+
+	// tick -> messagebuf
+	const clientSendData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE * 10, function () {
+		return {
+			len: 0, // the length of the message in bytes, from 0 to 400
+			msg: new Uint8Array(1024),
+		}
+	})
 
 	let serverRecvMessageCount = 0
-	const serverSendData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE * 10)  // tick -> messagebuf
+	// tick -> messagebuf
+	const serverSendData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE * 10, function () {
+		return {
+			len: 0, // the length of the message in bytes, from 0 to 400
+			msg: new Uint8Array(1024),
+		}
+	})
 
 	// test data: received through the network. This is what we compare the known good control data against
-	const clientRecvData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE)  // tick -> messagebuf
-	const serverRecvData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE)  // tick -> messagebuf
+	const clientRecvData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE, function () {
+		return {
+			len: 0, // the length of the message in bytes, from 0 to 400
+			msg: new Uint8Array(1024),
+		}
+	})  // tick -> messagebuf
+
+	// tick -> messagebuf
+	const serverRecvData = SequenceBuffer.create(LOCAL_MESSAGE_BUFFER_SIZE, function () {
+		return {
+			len: 0, // the length of the message in bytes, from 0 to 400
+			msg: new Uint8Array(1024),
+		}
+	})  
 
 
 	// client setup
@@ -67,65 +92,88 @@ async function main () {
 
 	server.bind(3002)
 
+
+	const messages = new Array(2048)
+	for (let i=0; i < messages.length; i++) {
+		messages[i] = {
+			len: 0,
+			msg: new Uint8Array(1024),
+		}
+	}
+
 	// run the test!
 	setInterval(function () {
 		// run client logic
-		let messages = Network.readMessages(endpointS, 0)
+		let messageCount = Network.readMessages(endpointS, 0, messages)
 
-		if (messages.length) {
+		if (messageCount) {
 			
-			for (const m of messages) {
-				SequenceBuffer.insertData(clientRecvData, clientRecvMessageCount, m)
+			for (let i=0; i < messageCount; i++) {
+				const m = messages[i]
+				const s = SequenceBuffer.insert(clientRecvData, clientRecvMessageCount)
+				s.msg.set(m.msg)
+				s.len = m.len
 				clientRecvMessageCount++
 			}
 
 			console.log('client recvd', clientRecvMessageCount, 'messages')
+
 			for (let i=1; i < LOCAL_MESSAGE_BUFFER_SIZE; i++) {
 				const mid = clientRecvMessageCount - i
 				if (mid < 0)
 					continue
 
 				// compare what the client receives with what the server sent
-				const control = SequenceBuffer.getData(serverSendData, mid)
-				const test = SequenceBuffer.getData(clientRecvData, mid)
-				if (!compareArrays(control, test))
+				const control = SequenceBuffer.find(serverSendData, mid)
+				const test = SequenceBuffer.find(clientRecvData, mid)
+
+				if (!compareSequenceBufferEntries(control, test))
 					throw new Error(`Test failed for messageid ${mid}: server sent doesn't match what client received. seed: ${seed}`)
 			}
 		}
 
-		const s = makeRandomMessage(4, 400)
-		SequenceBuffer.insertData(clientSendData, tick, s)
-		Network.sendMessage(endpointS, 0, s, s.byteLength)
+		const s = SequenceBuffer.insert(clientSendData, tick)
+		makeRandomMessage(s, 4, 400)
+
+		Network.sendMessage(endpointS, 0, s.msg, s.len)
 
 		Network.transmitPackets(endpointS)
 
-
 		// run server logic
-		messages = Network.readMessages(endpointC, 0)
-		if (messages.length) {
 
-			for (const m of messages) {
-				SequenceBuffer.insertData(serverRecvData, serverRecvMessageCount, m)
+		messageCount = Network.readMessages(endpointC, 0, messages)
+
+		if (messageCount) {
+			
+			for (let i=0; i < messageCount; i++) {
+				const m = messages[i]
+				const s = SequenceBuffer.insert(serverRecvData, serverRecvMessageCount)
+				s.msg.set(m.msg)
+				s.len = m.len
 				serverRecvMessageCount++
 			}
 
 			console.log('server recvd', serverRecvMessageCount, 'messages')
+
 			for (let i=1; i < LOCAL_MESSAGE_BUFFER_SIZE; i++) {
 				const mid = serverRecvMessageCount - i
 				if (mid < 0)
 					continue
 
 				// compare what the client receives with what the server sent
-				const control = SequenceBuffer.getData(clientSendData, mid)
-				const test = SequenceBuffer.getData(serverRecvData, mid)
-				if (!compareArrays(control, test))
+
+				const control = SequenceBuffer.find(clientSendData, mid)
+				const test = SequenceBuffer.find(serverRecvData, mid)
+				if (!compareSequenceBufferEntries(control, test)) {
+
 					throw new Error(`Test failed for messageid ${mid}: client sent doesn't match what server received. seed: ${seed}`)
+				}
 			}
 		}
 
-		const s2 = makeRandomMessage(4, 400)
-		SequenceBuffer.insertData(serverSendData, tick, s2)
-		Network.sendMessage(endpointC, 0, s2, s2.byteLength)
+		const s2 = SequenceBuffer.insert(serverSendData, tick)
+		makeRandomMessage(s2, 4, 400)
+		Network.sendMessage(endpointC, 0, s2.msg, s2.len)
  
 		Network.transmitPackets(endpointC)
 
@@ -135,26 +183,28 @@ async function main () {
 }
 
 
-function makeRandomMessage (minLength, maxLength) {
+function makeRandomMessage (out, minLength, maxLength) {
 	const len = Random.int(minLength, maxLength, rng)
-	const arr = new Uint8Array(len)
+	out.len = len
 	for (let i=0; i < len; i++)
-		arr[i] = Random.int(0, 255, rng)
+		out.msg[i] = Random.int(0, 255, rng)
 
-	return arr
+	return out
 }
 
 
-function compareArrays (a, b) {
-	if (a.byteLength !== b.byteLength)
+// compare 2 sequence buffer entries. returns true if they match
+// each sequence buffer entry is of the form { len, msg }
+function compareSequenceBufferEntries (a, b) {
+
+	if (a.len !== b.len)
 		return false
 
-	for (let i=0; i < a.byteLength; i++)
-		if (a[i] !== b[i])
+	for (let i=0; i < a.len; i++)
+		if (a.msg[i] !== b.msg[i])
 			return false
 
 	return true
 }
-
 
 main()

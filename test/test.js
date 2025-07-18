@@ -8,7 +8,7 @@ import { SequenceBuffer, Stream, create, addChannel,
          CHANNEL_RELIABLE } from '../src/network.js'
 
 
-// some really basic unit tests
+// basic unit tests
 
 
 async function main () {
@@ -75,7 +75,8 @@ function testSend () {
 			sendMessage(client, channelId, s.buf, byteLength)
 		}
 
-		assert.strictEqual(client.channels[0].messageSendBuffer.size, 5, `message send buffer should contain all the messages`)
+		let messagesInSendBuffer = countEntriesInSendBuffer(client.channels[0].messageSendBuffer)
+		assert.strictEqual(messagesInSendBuffer, 5, `message send buffer should contain all the messages`)
 		assert.strictEqual(client.channels[0].nextMessageId, 5, `message send buffer should have 5 as it's next message id`)
 
 		const s = Stream.create()
@@ -83,7 +84,8 @@ function testSend () {
 
 		const byteCount = Math.ceil(s.offsetBits / 8)
 		
-		assert.strictEqual(client.channels[0].messageSendBuffer.size, 0, `message send buffer should fully drain`)
+		messagesInSendBuffer = countEntriesInSendBuffer(client.channels[0].messageSendBuffer)
+		assert.strictEqual(messagesInSendBuffer, 0, `message send buffer should fully drain`)
 	}
 
 	// ensure packets don't overfill
@@ -104,7 +106,8 @@ function testSend () {
 		const s = Stream.create()
 		const wroteData = writePacket(client, s)
 
-		assert.strictEqual(client.channels[0].messageSendBuffer.size, 2)
+		const messagesInSendBuffer = countEntriesInSendBuffer(client.channels[0].messageSendBuffer)
+		assert.strictEqual(messagesInSendBuffer, 2)
 
 		const byteCount = Math.ceil(s.offsetBits / 8)
 		assert.strictEqual(byteCount, 785)
@@ -116,8 +119,16 @@ function testSend () {
 		s.offsetBits = 0
 		readPacket(server, s)
 
-		const messages = readMessages(server, channelId)
-		assert.strictEqual(messages.length, 3)
+		const messages = new Array(2048)
+		for (let i=0; i < messages.length; i++) {
+			messages[i] = {
+				len: 0,
+				msg: new Uint8Array(1024),
+			}
+		}
+
+		const messageCount = readMessages(server, channelId, messages)
+		assert.strictEqual(messageCount, 3)
 	}
 }
 
@@ -156,12 +167,12 @@ function testPacketAck () {
 	for (let i=0; i < packetsToSend; i++) {
 		const wasServerLost = serverLost[i]
 
-		let acked = SequenceBuffer.getData(client.packet.sent, i)
+		let acked = SequenceBuffer.find(client.packet.sent, i)
 	
 		if (acked === wasServerLost)
 			throw new Error(`client.packet.sent[${i}].acked: ${acked}`)
 
-		acked = SequenceBuffer.getData(client.packet.recvd, i)
+		acked = SequenceBuffer.find(client.packet.recvd, i)
 		if (!acked)
 			throw new Error(`client.packet.recv[${i}].acked: ${acked}`)
 	}
@@ -176,7 +187,7 @@ function testPacketAck () {
 	// all packets before that should be acked on the server
 	for (let i=0; i < lastIdx; i++) {
 		//const wasServerLost = serverLost[i]
-		let acked = SequenceBuffer.getData(server.packet.sent, i)
+		let acked = SequenceBuffer.find(server.packet.sent, i)
 		if (!acked)
 			throw new Error(`server.packet.sent[${i}].acked: ${acked}`)
 	}
@@ -194,5 +205,13 @@ function makeAndSendPacket (from, to, lost=false) {
 		readPacket(to, s)
 }
 
+
+function countEntriesInSendBuffer (sb) {
+	let messagesInSendBuffer = 0
+	for (let i=0; i < sb.size; i++)
+		if (SequenceBuffer.getAtIndex(sb, i))
+			messagesInSendBuffer++
+	return messagesInSendBuffer
+}
 
 main()

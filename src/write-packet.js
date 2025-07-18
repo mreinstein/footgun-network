@@ -14,7 +14,7 @@ export default function writePacket (endpoint, s) {
 
 	// Insert an entry for the current send packet sequence number in the sent packet sequence buffer
 	// with data indicating that it hasn’t been acked yet
-	SequenceBuffer.insertData(endpoint.packet.sent, endpoint.packet.nextSequence, false)
+	SequenceBuffer.insertDirect(endpoint.packet.sent, endpoint.packet.nextSequence, false)
 
 	// Generate ack and ack_bits from the contents of the local received packet sequence buffer and the
 	// most recent received packet sequence number
@@ -31,7 +31,7 @@ export default function writePacket (endpoint, s) {
 
 			// the first 31 sent packets that send over this connection won't be able to fill ackBits with 32 values
 			if (ack - i >= 0) {
-				const d = SequenceBuffer.getData(endpoint.packet.recvd, ack - i)
+				const d = SequenceBuffer.find(endpoint.packet.recvd, ack - i)
 				if (d)
 					ackBit = 1
 			}
@@ -66,15 +66,21 @@ export default function writePacket (endpoint, s) {
 
 		if (channel.type === CHANNEL_UNRELIABLE) {
 			// fill in all packets that will fit and remove them from the send queue
-			for (const [ msgId, payload ] of channel.messageSendBuffer) {
-				const bitLength = (payload.byteLength * 8) + 10 // messageLength encoded as 10 bits
-				if (bitLength <= availableBits) {
-					Stream.write.uint(s, payload.byteLength, 10)
-					Stream.write.arr(s, payload.message, payload.byteLength)
-					channel.messageSendBuffer.delete(msgId)
-					availableBits -= bitLength
-					messageCount++
-					packetMessageCount++
+			for (let j=0; j < channel.messageSendBuffer.size; j++) {
+				const m = SequenceBuffer.getAtIndex(channel.messageSendBuffer, j)
+				if (m) {
+					const payloadByteLength = m.len
+					const bitLength = (payloadByteLength * 8) + 10 // messageLength encoded as 10 bits
+					if (bitLength <= availableBits) {
+						Stream.write.uint(s, payloadByteLength, 10)
+						Stream.write.arr(s, m.msg, payloadByteLength)
+
+						const msgId = channel.messageSendBuffer.entrySequence[j]
+						SequenceBuffer.remove(channel.messageSendBuffer, msgId)
+						availableBits -= bitLength
+						messageCount++
+						packetMessageCount++
+					}
 				}
 			}
 			
@@ -82,19 +88,18 @@ export default function writePacket (endpoint, s) {
 
 			// track the ids of all reliable messages added to this packet
 			// so they can be used to map packet level acks to the set of messages included in that packet.
-			const reliableMessageIds = [ ]
-			SequenceBuffer.insertData(channel.packetMessages, endpoint.packet.nextSequence, reliableMessageIds)
+			const ss = SequenceBuffer.insert(channel.packetMessages, endpoint.packet.nextSequence)
+			ss.len = 0
 	
 			// Walk across the set of messages in the send message sequence buffer between the oldest unacked message id and
 			// the most recent inserted message id from left -> right (increasing message id order).
 			for (let mid=channel.oldestUnackedMessageId; mid < channel.nextMessageId; mid++) {
 
-				const m = channel.messageSendBuffer.get(mid)
+				const m = SequenceBuffer.find(channel.messageSendBuffer, mid)
 				if (m) {
 					/*
-					NOTE: I don't think this is an issue for my codebase, because I'm storing received messages in a map
-					      (channel.messageRecvBuffer) which doesn't have a fixed size limit as a sequence buffer does, which
-					      Gaffer uses in his implementation. 
+					TODO: check this logic, I forget what needs to be done here. I used to use a js Map for this but the 
+				 		  memory leaking for it was pretty horrendous!
 
 					Never send a message id that the receiver can’t buffer or you’ll break message acks (since that message won’t
 					be buffered, but the packet containing it will be acked, the sender thinks the message has been received, and
@@ -109,15 +114,19 @@ export default function writePacket (endpoint, s) {
 
 					Include the messages in the outgoing packet and add a reference to each message.
 					*/
-					const dt = performance.now() - SequenceBuffer.getData(channel.messageLastSent, mid)
+					const dt = performance.now() - SequenceBuffer.find(channel.messageLastSent, mid)
 					if (dt > 100) {
-						const bitLength = (m.byteLength * 8) + 10 + 32 // messageLength (10 bits) messageid (16 bits)
+						const payloadByteLength = m.len
+						const bitLength = (payloadByteLength * 8) + 10 + 32 // messageLength (10 bits) messageid (32 bits)
 						if (bitLength <= availableBits) {
-							reliableMessageIds.push(mid)  // allows us to look up later upon packet ack which reliable messageids arrived
-							SequenceBuffer.insertData(channel.messageLastSent, mid, performance.now())
-							Stream.write.uint(s, m.byteLength, 10)
+							// allows us to look up later upon packet ack which reliable messageids arrived
+							ss.messageids[ss.len] = mid
+							ss.len++
+
+							SequenceBuffer.insertDirect(channel.messageLastSent, mid, performance.now())
+							Stream.write.uint(s, payloadByteLength, 10)
 							Stream.write.uint32(s, mid)
-							Stream.write.arr(s, m.message, m.byteLength)
+							Stream.write.arr(s, m.msg, payloadByteLength)
 							availableBits -= bitLength
 							messageCount++
 							packetMessageCount++
@@ -136,7 +145,7 @@ export default function writePacket (endpoint, s) {
 		written += messageCount
 	}
 
-	SequenceBuffer.insertData(endpoint.packet.lastSent, endpoint.packet.nextSequence, performance.now())
+	SequenceBuffer.insertDirect(endpoint.packet.lastSent, endpoint.packet.nextSequence, performance.now())
 
 	endpoint.packet.nextSequence++
 

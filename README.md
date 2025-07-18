@@ -4,14 +4,15 @@ A node.js library for low latency, realtime networking over UDP.
 
 Features:
 
-* extremely low latency message delivery
+* low latency message delivery
+* **does not leak memory**
 * `unreliable-unordered` channels
 * `reliable-ordered` channels
 * per-endpoint Round Trip Time (RTT) estimation
 * send/receive transfer speed estimations
 * data oriented design
-* has unit and soak tests
-* minimal (~500 lines of code)
+* **has unit and soak tests**
+* minimal (~1k lines of code)
 * 0 external dependencies
 * pure es module
 
@@ -52,6 +53,16 @@ async function main () {
     const unreliableChannelId = 0
     const reliableChannelId = 1
 
+    // define a structure that will hold messages read from the network
+    const messages = new Array(2048)
+    for (let i=0; i < messages.length; i++) {
+        messages[i] = {
+            len: 0,
+            msg: new Uint8Array(1024),
+        }
+    }
+
+
     const gameLoop = function () {
 
         // send one message over unreliable channel
@@ -63,14 +74,26 @@ async function main () {
         const enterVehicleMsg = new Uint8Array([ 23, 106, 255, 0, 24, 14, 91 ]) 
         Network.sendMessage(endpoint, reliableChannelId, enterVehicleMsg, enterVehicleMsg.byteLength)
 
+
         // receive messages over the unreliable channel (each message is a Uint8Array)
-        const unreliableMsgs = Network.readMessages(endpoint, unreliableChannelId)
+        let msgCount = Network.readMessages(endpoint, unreliableChannelId, messages)
+
+        // process each message received over the uneliable channel
+        for (let i=0; i < msgCount; i++) {
+            const um = messages[i]  // um.msg is the data, um.len is how many bytes are in it
+        }
+
 
         // also an array of messages, but the reliable channels will ensure the order is
         // maintained, so if packets are dropped or arrive out of order you can still have
         // confidence you'll see a consistent ordered message stream here that matches what
         // the sending side put in.
-        const reliableMsgs = Network.readMessages(endpoint, reliableChannelId)
+        msgCount = Network.readMessages(endpoint, reliableChannelId, messages)
+
+        // process each message received over the reliable channel
+        for (let i=0; i < msgCount; i++) {
+            const um = messages[i]  // um.msg is the data, um.len is how many bytes are in it
+        }
 
 
         // package all queued messages into packets and send them over the underlying UDP socket

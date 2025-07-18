@@ -55,7 +55,17 @@ export function addChannel (endpoint, type) {
 
     const channel = {
     	type,                         // CHANNEL_UNRELIABLE | CHANNEL_RELIABLE
-    	messageSendBuffer: new Map(), // messageid -> { message, byteLength }
+    
+    	// TODO: I don't know if 2000 is sufficient here, I'm just throwing it in for now.
+    	//       re-read the unreliable channel stuff from gaffer to understand this one properly
+    	//
+    	// messageid -> { message, byteLength }
+    	messageSendBuffer: SequenceBuffer.create(2000, function () {
+    		return {
+    			len: 0,
+    			msg: new Uint8Array(1024),
+    		}
+    	}),
 
 		// messageid starts at 0 and increases with each message sent.
 		nextMessageId: 0, // id to use for the next message to be sent
@@ -64,14 +74,29 @@ export function addChannel (endpoint, type) {
     if (type === CHANNEL_RELIABLE) {
     	// https://github.com/mas-bandwidth/yojimbo/blob/d8722261c7a93867c6c95c221966c714d4048b6f/include/yojimbo_reliable_ordered_channel.h#L366C9-L367C9
 
-    	channel.messageRecvBuffer = new Map() // messageid -> [ data (Uint8Array), byteLength ]
+    	// TODO: I don't know if 2000 is sufficient here, I'm just throwing it in for now.
+    	//       re-read the reliable channel stuff from gaffer to understand this one properly
+    	//
+    	// messageid -> [ msg (Uint8Array), len (byteLength of msg) ]
+    	channel.messageRecvBuffer = SequenceBuffer.create(2000, function () {
+    		return {
+    			len: 0,
+    			msg: new Uint8Array(1024),
+    		}
+    	}) 
 
     	channel.nextMessageReceiveId = 0 // the next message to receive from the messageRecvBuffer
     	channel.oldestUnackedMessageId = 0 // Id of the oldest unacked message in the send queue.
     	channel.messageLastSent = SequenceBuffer.create(1024) // messageId -> timeOfLastSend (in milliseconds)
 
     	// Stores information per sent connection packet about messages included in each packet. Used to walk from connection packet level acks to message level acks.
-    	channel.packetMessages = SequenceBuffer.create(1024) // packetid -> [ messageids sent in this packet ]
+    	// packetid -> [ messageids sent in this packet ]
+    	channel.packetMessages = SequenceBuffer.create(1024, function () {
+    		return {
+    			messageids: new Uint32Array(512), // seems unlikely we'd ever have 512 messages in a packet given they're limited to 1KB
+    			len: 0,
+    		}
+    	})
     }
     else if (type === CHANNEL_UNRELIABLE) {
 		channel.recvdMessages = [ ] // each message in this array is a Uint8Array of bytes 
@@ -89,10 +114,13 @@ export function sendMessage (endpoint, channelId, message, byteLength) {
 		throw new Error(`Message size is too large, exceeds limit of ${Math.ceil(maxMessageBits/8)} bytes`)
 
 	const channel = endpoint.channels[channelId]
-	channel.messageSendBuffer.set(channel.nextMessageId, { message, byteLength })
+
+	const m = SequenceBuffer.insert(channel.messageSendBuffer, channel.nextMessageId)
+	m.len = byteLength
+	m.msg.set(message)
 
 	if (channel.type === CHANNEL_RELIABLE)
-		SequenceBuffer.insertData(channel.messageLastSent, channel.nextMessageId, 0) // set initial send timestamp to 0
+		SequenceBuffer.insertDirect(channel.messageLastSent, channel.nextMessageId, 0) // set initial send timestamp to 0
 
 	channel.nextMessageId++
 }
@@ -121,21 +149,26 @@ function hasAvailableData (endpoint) {
 		const channel = endpoint.channels[i]
 	
 		if (channel.type === CHANNEL_UNRELIABLE) {
-			for (const [ msgId, payload ] of channel.messageSendBuffer) {
-				const bitLength = (payload.byteLength * 8) + 10 // messageLength encoded as 10 bits
-				if (bitLength <= availableBits)
-					return true
+			for (let j=0; j < channel.messageSendBuffer.size; j++) {
+				const m = SequenceBuffer.getAtIndex(channel.messageSendBuffer, j)
+				if (m) {
+					const payloadByteLength = m.len
+					const bitLength = (payloadByteLength * 8) + 10 // messageLength encoded as 10 bits
+					if (bitLength <= availableBits)
+						return true
+				}
 			}
 			
 		} else if (channel.type === CHANNEL_RELIABLE) {
 			// Walk across the set of messages in the send message sequence buffer between the oldest unacked message id and
 			// the most recent inserted message id from left -> right (increasing message id order).
 			for (let mid=channel.oldestUnackedMessageId; mid < channel.nextMessageId; mid++) {
-				const m = channel.messageSendBuffer.get(mid)
+				const m = SequenceBuffer.find(channel.messageSendBuffer, mid)
 				if (m) {
-					const dt = performance.now() - SequenceBuffer.getData(channel.messageLastSent, mid)
+					const dt = performance.now() - SequenceBuffer.find(channel.messageLastSent, mid)
 					if (dt > 100) {
-						const bitLength = (m.byteLength * 8) + 10 + 32 // messageLength encoded as 10 bits
+						const payloadByteLength = m.len
+						const bitLength = (payloadByteLength * 8) + 10 + 32 // messageLength encoded as 10 bits
 						if (bitLength <= availableBits)
 							return true
 					}
@@ -161,7 +194,7 @@ export function readPacket (endpoint, s) {
 	endpoint.packet.newestReceivedPacketSeq = Math.max(endpoint.packet.newestReceivedPacketSeq, seqId)
 
 	// mark this packet's sequence number as having been received
-	SequenceBuffer.insertData(endpoint.packet.recvd, seqId, true)
+	SequenceBuffer.insertDirect(endpoint.packet.recvd, seqId, true)
 
 	// decode the set of ack'd sequence numbers from ack and ackBits
 	// informs us which packet ids have definitely received from this endpoint
@@ -174,8 +207,8 @@ export function readPacket (endpoint, s) {
 		if (packetid < 0)
 			continue
 		
-		const wasAcked = SequenceBuffer.getData(endpoint.packet.sent, packetid)
-		SequenceBuffer.insertData(endpoint.packet.sent, packetid, ackedNow)
+		const wasAcked = SequenceBuffer.find(endpoint.packet.sent, packetid)
+		SequenceBuffer.insertDirect(endpoint.packet.sent, packetid, ackedNow)
 
 		if (wasAcked || !ackedNow)
 			continue
@@ -184,7 +217,7 @@ export function readPacket (endpoint, s) {
 
 		if (i === 0) {
 			// update round trip time
-			const sampleRtt = performance.now() - SequenceBuffer.getData(endpoint.packet.lastSent, packetid)
+			const sampleRtt = performance.now() - SequenceBuffer.find(endpoint.packet.lastSent, packetid)
 			const alpha = 0.125
 			if (endpoint.RTT === 0)
 		      endpoint.RTT = sampleRtt
@@ -198,16 +231,18 @@ export function readPacket (endpoint, s) {
 			if (channel.type === CHANNEL_RELIABLE) {
 				// Look up the set of messages ids included in the packet
 				// Remove those messages from the message send queue if they exist.
-				const mids = SequenceBuffer.getData(channel.packetMessages, packetid)
-				for (const mid of mids)
-					channel.messageSendBuffer.delete(mid)
+				const mids = SequenceBuffer.find(channel.packetMessages, packetid)
+			
+				for (let k=0; k < mids.len; k++) {
+					const mid = mids.messageids[k]
+					SequenceBuffer.remove(channel.messageSendBuffer, mid)
+				}
 				
 				// Update the last unacked message id by walking forward from the previous unacked message id in
 				// the send message sequence buffer until a valid message entry is found, or you reach the current
 				// send message id. Whichever comes first.
 				for (let mid=channel.oldestUnackedMessageId; mid < channel.nextMessageId; mid++) {
-					const msg = channel.messageSendBuffer.get(mid)
-
+					const msg = SequenceBuffer.find(channel.messageSendBuffer, mid)
 					if (!msg)
 						channel.oldestUnackedMessageId = mid + 1// message isn't in send queue, it must have been acked, advance
 					else
@@ -231,7 +266,9 @@ export function readPacket (endpoint, s) {
 			else if (channel.type === CHANNEL_RELIABLE) {
 				const mid = Stream.read.uint32(s)
 				const m = Stream.read.arr(s, messageLength)
-				channel.messageRecvBuffer.set(mid, { message: m, byteLength: messageLength })
+				const ss = SequenceBuffer.insert(channel.messageRecvBuffer, mid)
+				ss.msg.set(m)
+				ss.len = messageLength
 			}	
 		}
 	}
@@ -241,13 +278,18 @@ export function readPacket (endpoint, s) {
 
 
 // get all available messages from the channel.  Each message is a Uint8Array
-export function readMessages (endpoint, channelId) {
+export function readMessages (endpoint, channelId, messages) {
 	const channel = endpoint.channels[channelId]
 
-	let messages = [ ]
+	let count = 0
 
 	if (channel.type === CHANNEL_UNRELIABLE) {
-		messages = [ ...channel.recvdMessages ]
+
+		for (const m of channel.recvdMessages) {
+			messages[count].msg.set(m)
+			messages[count].len = m.byteLength
+			count++
+		}
 
 		// delivered the messages, can empty out the local buffer
 		channel.recvdMessages.length = 0
@@ -261,17 +303,21 @@ export function readMessages (endpoint, channelId) {
 
 		Otherwise, no message is available to receive. Return NULL.
 		*/
+
 		for (let mid=channel.nextMessageReceiveId; ; mid++) {
-			const m = channel.messageRecvBuffer.get(mid)
+			const m = SequenceBuffer.find(channel.messageRecvBuffer, mid)
 			if (!m)
 				break
 
-			messages.push(m.message)
+			messages[count].msg.set(m.msg)
+			messages[count].len = m.len
+			count++
+
 			channel.nextMessageReceiveId = mid + 1
 		}
 	}
 
-	return messages
+	return count
 }
 
 
