@@ -1,5 +1,5 @@
 import * as SequenceBuffer from './sequence-buffer.js'
-import * as Stream         from './uint8array/stream.js'
+import * as BitStream      from '@footgun/bitstream'
 import * as constants      from './constants.js'
 
 
@@ -21,9 +21,9 @@ export default function writePacket (endpoint, s) {
 	const ack = (endpoint.packet.newestReceivedPacketSeq >= 0) ? endpoint.packet.newestReceivedPacketSeq : 0
 
 	// Fill the packet header with sequence, ack and ack_bits
-	Stream.write.uint32(s, endpoint.packet.nextSequence)
+	BitStream.write.uint32(s, endpoint.packet.nextSequence)
 
-	Stream.write.uint32(s, ack)
+	BitStream.write.uint32(s, ack)
 
 	if (endpoint.packet.newestReceivedPacketSeq >= 0) {
 		for (let i=0; i < 32; i++) {
@@ -36,10 +36,10 @@ export default function writePacket (endpoint, s) {
 					ackBit = 1
 			}
 
-			Stream.write.uint(s, ackBit, 1)
+			BitStream.write.uint(s, ackBit, 1)
 		}
 	} else {
-		Stream.write.uint32(s, 0)
+		BitStream.write.uint32(s, 0)
 	}
 
 
@@ -62,7 +62,7 @@ export default function writePacket (endpoint, s) {
 		let messageCount = 0  // how many messages were written for this channel
 		const messageCountOffsetBits = s.offsetBits // where in the stream the message count for this channel is stored
 
-		Stream.write.uint8(s, messageCount) // placeholder for the message count of this channel
+		BitStream.write.uint8(s, messageCount) // placeholder for the message count of this channel
 
 		if (channel.type === CHANNEL_UNRELIABLE) {
 			// fill in all packets that will fit and remove them from the send queue
@@ -72,8 +72,8 @@ export default function writePacket (endpoint, s) {
 					const payloadByteLength = m.len
 					const bitLength = (payloadByteLength * 8) + 10 // messageLength encoded as 10 bits
 					if (bitLength <= availableBits) {
-						Stream.write.uint(s, payloadByteLength, 10)
-						Stream.write.arr(s, m.msg, payloadByteLength)
+						BitStream.write.uint(s, payloadByteLength, 10)
+						BitStream.write.arr(s, m.msg, payloadByteLength)
 
 						const msgId = channel.messageSendBuffer.entrySequence[j]
 						SequenceBuffer.remove(channel.messageSendBuffer, msgId)
@@ -129,9 +129,9 @@ export default function writePacket (endpoint, s) {
 							ss.len++
 
 							SequenceBuffer.insertDirect(channel.messageLastSent, mid, performance.now())
-							Stream.write.uint(s, payloadByteLength, 10)
-							Stream.write.uint32(s, mid)
-							Stream.write.arr(s, m.msg, payloadByteLength)
+							BitStream.write.uint(s, payloadByteLength, 10)
+							BitStream.write.uint32(s, mid)
+							BitStream.write.arr(s, m.msg, payloadByteLength)
 							availableBits -= bitLength
 							messageCount++
 							packetMessageCount++
@@ -144,7 +144,7 @@ export default function writePacket (endpoint, s) {
 		// now that we have the real count of how many messages fit into the packet, set that in the packet
 		const tmp = s.offsetBits
 		s.offsetBits = messageCountOffsetBits
-		Stream.write.uint8(s, messageCount)
+		BitStream.write.uint8(s, messageCount)
 		s.offsetBits = tmp
 
 		written += messageCount

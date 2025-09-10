@@ -2,7 +2,7 @@ import Alea                from 'alea'
 import * as Network        from '../src/network.js'
 import * as Random         from '@footgun/random-gap'
 import * as SequenceBuffer from '../src/sequence-buffer.js'
-import * as Stream         from '../src/uint8array/stream.js'
+import * as BitStream      from '@footgun/bitstream'
 import { createSocket }    from 'dgram'
 
 
@@ -74,7 +74,7 @@ async function main () {
 
 	client.on('message', (msg, rinfo) => {
 		// receive a packet from the server
-		Network.readPacket(endpointS, Stream.create(msg))
+		Network.readPacket(endpointS, BitStream.create(msg))
 	})
 
 	client.bind(3001)
@@ -87,7 +87,7 @@ async function main () {
 
 	server.on('message', (msg, rinfo) => {
 		// receive a packet from the client
-		Network.readPacket(endpointC, Stream.create(msg))
+		Network.readPacket(endpointC, BitStream.create(msg))
 	})
 
 	server.bind(3002)

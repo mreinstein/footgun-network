@@ -1,11 +1,8 @@
 import * as SequenceBuffer from './sequence-buffer.js'
-import * as Stream         from './uint8array/stream.js'
+import * as BitStream      from '@footgun/bitstream'
 import * as constants      from './constants.js'
 export *                   from './constants.js'
 export * as SequenceBuffer from './sequence-buffer.js'
-export * as Stream         from './uint8array/stream.js'
-export * as pack           from './uint8array/pack.js'
-export * as unpack         from './uint8array/unpack.js'
 import writePacket         from './write-packet.js'
 
 
@@ -121,7 +118,7 @@ export function sendMessage (endpoint, channelId, message, byteLength) {
 // generate packets and send them over an endpoint's UDP socket
 export function transmitPackets (endpoint) {
 	while (hasAvailableData(endpoint)) {
-		const s = Stream.create()
+		const s = BitStream.create()
 		const wrote = writePacket(endpoint, s)
 		const byteCount = Math.ceil(s.offsetBits / 8)
 		endpoint.socket.send(s.buf, 0, byteCount, endpoint.port, endpoint.address)
@@ -195,9 +192,9 @@ function hasAvailableData (endpoint) {
 // @param s        writable stream
 export function readPacket (endpoint, s) {
 	// read the packet header info
-	const seqId = Stream.read.uint32(s)     // this packet's sequence number
-	const ack = Stream.read.uint32(s)       // newest packet sequence number received by the sender
-	//const ackBits = Stream.read.uint32(s) // 32 packets prior to the newest packetId
+	const seqId = BitStream.read.uint32(s)     // this packet's sequence number
+	const ack = BitStream.read.uint32(s)       // newest packet sequence number received by the sender
+	//const ackBits = BitStream.read.uint32(s) // 32 packets prior to the newest packetId
 
 	// if this packet has a newer sequence number, update it in our data structure
 	endpoint.packet.newestReceivedPacketSeq = Math.max(endpoint.packet.newestReceivedPacketSeq, seqId)
@@ -208,7 +205,7 @@ export function readPacket (endpoint, s) {
 	// decode the set of ack'd sequence numbers from ack and ackBits
 	// informs us which packet ids have definitely received from this endpoint
 	for (let i=0; i < 32; i++) {
-		const ackedNow = !!Stream.read.uint(s, 1) // read 1 dang bit
+		const ackedNow = !!BitStream.read.uint(s, 1) // read 1 dang bit
 
 		const packetid = ack - i
 
@@ -263,18 +260,18 @@ export function readPacket (endpoint, s) {
 
 	for (let i=0; i < endpoint.channels.length;i++) {
 		const channel = endpoint.channels[i]
-		const messageCount = Stream.read.uint8(s)
+		const messageCount = BitStream.read.uint8(s)
 
 		for (let i=0; i < messageCount; i++) {
-			const messageLength = Stream.read.uint(s, 10)  // how many bytes are in the message
+			const messageLength = BitStream.read.uint(s, 10)  // how many bytes are in the message
 
 			if (channel.type === CHANNEL_UNRELIABLE) {
-				const m = Stream.read.arr(s, messageLength)	
+				const m = BitStream.read.arr(s, messageLength)	
 				channel.recvdMessages.push(m)
 			}
 			else if (channel.type === CHANNEL_RELIABLE) {
-				const mid = Stream.read.uint32(s)
-				const m = Stream.read.arr(s, messageLength)
+				const mid = BitStream.read.uint32(s)
+				const m = BitStream.read.arr(s, messageLength)
 				const ss = SequenceBuffer.insert(channel.messageRecvBuffer, mid)
 				ss.msg.set(m)
 				ss.len = messageLength

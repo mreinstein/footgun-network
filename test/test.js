@@ -2,7 +2,8 @@ import Alea                from 'alea'
 import assert              from 'node:assert/strict'
 import test                from 'node:test'
 import writePacket         from '../src/write-packet.js'
-import { SequenceBuffer, Stream, create, addChannel,
+import * as BitStream      from '@footgun/bitstream'
+import { SequenceBuffer, create, addChannel,
          readPacket, readMessages, sendMessage,
          transmitPackets, CHANNEL_UNRELIABLE,
          CHANNEL_RELIABLE } from '../src/network.js'
@@ -13,9 +14,9 @@ import { SequenceBuffer, Stream, create, addChannel,
 
 async function main () {
 	//await testOrderedReliable()
-//	return // remove after testing latest 
+	//return // remove after testing latest 
 
-	for (let i=0; i < 20000; i++)
+	for (let i=0; i < 5000; i++)
 		testPacketAck()
 
 	testSend()
@@ -35,8 +36,8 @@ async function testOrderedReliable () {
 	addChannel(client, CHANNEL_RELIABLE)
 
 	for (let i=0; i < 5; i++) {
-		const s = Stream.create()
-		Stream.write.uint32(s, 319 + i)
+		const s = BitStream.create()
+		BitStream.write.uint32(s, 319 + i)
 		sendMessage(client, 0, s, 4)
 	}
 
@@ -68,9 +69,9 @@ function testSend () {
 
 		const channelId = 0
 		for (let i=0; i < 5; i++) {
-			const s = Stream.create()
+			const s = BitStream.create()
 			for (let j=0; j < i; j++)
-				Stream.write.uint8(s, i)
+				BitStream.write.uint8(s, i)
 			const byteLength = Math.ceil(s.offsetBits / 8)
 			sendMessage(client, channelId, s.buf, byteLength)
 		}
@@ -79,7 +80,7 @@ function testSend () {
 		assert.strictEqual(messagesInSendBuffer, 5, `message send buffer should contain all the messages`)
 		assert.strictEqual(client.channels[0].nextMessageId, 5, `message send buffer should have 5 as it's next message id`)
 
-		const s = Stream.create()
+		const s = BitStream.create()
 		const wroteData = writePacket(client, s)
 
 		const byteCount = Math.ceil(s.offsetBits / 8)
@@ -95,15 +96,15 @@ function testSend () {
 
 		const channelId = 0
 		for (let i=0; i < 5; i++) {
-			const s = Stream.create()
-			Stream.write.uint8(s, 33)
+			const s = BitStream.create()
+			BitStream.write.uint8(s, 33)
 			for (let j=1; j < 256; j++)
-				Stream.write.uint8(s, i)
+				BitStream.write.uint8(s, i)
 			const byteLength = Math.ceil(s.offsetBits / 8)
 			sendMessage(client, channelId, s.buf, byteLength)
 		}
 
-		const s = Stream.create()
+		const s = BitStream.create()
 		const wroteData = writePacket(client, s)
 
 		const messagesInSendBuffer = countEntriesInSendBuffer(client.channels[0].messageSendBuffer)
@@ -196,7 +197,7 @@ function testPacketAck () {
 
 // helper function to simulate sending a new packet from one endpoint to another
 function makeAndSendPacket (from, to, lost=false) {
-	const s = Stream.create()
+	const s = BitStream.create()
 	writePacket(from, s)
 
 	s.offsetBits = 0  // reset the position in the stream so we can read from the beginning

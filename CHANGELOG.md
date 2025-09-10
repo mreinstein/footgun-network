@@ -1,3 +1,8 @@
+# 0.5.0
+* BREAKING: this module no longer exports `Stream`, `pack`, or `unpack`. If these are wanted
+  import https://www.npmjs.com/package/@footgun/bitstream directly
+* move src/uint8array to it's own module: @footgun/bitstream
+
 # 0.4.1
 * fix a bug that breaks message acking under heavy packet loss conditions
 
