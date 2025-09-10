@@ -13,7 +13,6 @@ Features:
 * data oriented design
 * **has unit and soak tests**
 * minimal (~1k lines of code)
-* 0 external dependencies
 * pure es module
 
 
