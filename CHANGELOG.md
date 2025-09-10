@@ -1,3 +1,6 @@
+# 0.5.1
+* update @footgun/bitstream to 1.0.0
+
 # 0.5.0
 * BREAKING: this module no longer exports `Stream`, `pack`, or `unpack`. If these are wanted
   import https://www.npmjs.com/package/@footgun/bitstream directly
